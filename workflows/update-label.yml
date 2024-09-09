@@ -1,0 +1,29 @@
+name: Update PR Label on Project Board Status Change
+
+on:
+  project_card:
+    types: [moved]
+
+jobs:
+  update-label:
+    runs-on: ubuntu-latest
+    if: github.event.project_card.column_id == 'YOUR_DONE_COLUMN_ID'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get PR number
+        id: get_pr
+        run: |
+          PR_URL=$(curl -s -H "Authorization: token ${{ secrets.TOKEN }}" \
+            "${{ github.event.project_card.content_url }}" | jq -r '.pull_request.url')
+          echo "::set-output name=pr_url::$PR_URL"
+
+      - name: Update PR label
+        if: steps.get_pr.outputs.pr_url != 'null'
+        run: |
+          PR_NUMBER=$(echo ${{ steps.get_pr.outputs.pr_url }} | grep -o '[0-9]*$')
+          curl -s -X POST -H "Authorization: token ${{ secrets.TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/labels \
+            -d '{"labels":["status: done"]}'
